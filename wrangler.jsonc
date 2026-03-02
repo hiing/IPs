@@ -1,0 +1,10 @@
+{
+    "name": "ip-info-app",
+    "compatibility_date": "2025-04-01",
+    "compatibility_flags": [
+        "nodejs_compat"
+    ],
+    // API key should be set via `wrangler secret put IPINFO_API_KEY`
+    // Do NOT put the actual key here
+    "vars": {}
+}

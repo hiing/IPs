@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { type Locale, t } from "../i18n/translations";
 
 // ===== Types =====
 interface IPData {
@@ -109,10 +110,12 @@ function SecurityBadge({
     label,
     detected,
     icon,
+    locale,
 }: {
     label: string;
     detected: boolean;
     icon: string;
+    locale: Locale;
 }) {
     return (
         <div className={`security-badge ${detected ? "threat" : "safe"}`}>
@@ -122,7 +125,7 @@ function SecurityBadge({
                     {icon} {label}
                 </span>
                 <span className={`badge-status ${detected ? "threat" : "safe"}`}>
-                    {detected ? "Detected" : "Not Detected"}
+                    {detected ? t(locale, "security.detected") : t(locale, "security.notDetected")}
                 </span>
             </div>
         </div>
@@ -140,7 +143,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 // ===== Main Dashboard =====
-export default function IPDashboard() {
+export default function IPDashboard({ locale }: { locale: Locale }) {
     const [ipData, setIpData] = useState<IPData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -204,7 +207,7 @@ export default function IPDashboard() {
         return (
             <div className="loading-container">
                 <div className="loading-spinner" />
-                <p className="loading-text">Analyzing IP address...</p>
+                <p className="loading-text">{t(locale, "loading.text")}</p>
             </div>
         );
     }
@@ -214,10 +217,10 @@ export default function IPDashboard() {
         return (
             <div className="error-container">
                 <div className="error-icon">⚠️</div>
-                <h3 className="error-title">Something went wrong</h3>
+                <h3 className="error-title">{t(locale, "error.title")}</h3>
                 <p className="error-message">{error}</p>
                 <button className="retry-btn" onClick={() => fetchIPData()}>
-                    Try Again
+                    {t(locale, "error.retry")}
                 </button>
             </div>
         );
@@ -238,7 +241,7 @@ export default function IPDashboard() {
                             id="ip-search-input"
                             type="text"
                             className="search-input"
-                            placeholder="Enter IP address to lookup (e.g. 1.1.1.1)"
+                            placeholder={t(locale, "search.placeholder")}
                             aria-label="IP address to lookup"
                             value={searchIp}
                             onChange={(e) => setSearchIp(e.target.value)}
@@ -249,12 +252,12 @@ export default function IPDashboard() {
                             className="search-btn"
                             disabled={!searchIp.trim()}
                         >
-                            Lookup
+                            {t(locale, "search.btn")}
                         </button>
                     </div>
                 </form>
                 <button id="my-ip-btn" className="my-ip-btn" onClick={handleMyIP} aria-label="Detect my IP address">
-                    📡 Detect My IP
+                    {t(locale, "search.myip")}
                 </button>
             </div>
 
@@ -270,7 +273,7 @@ export default function IPDashboard() {
                                 <span>{ipData.hostname}</span>
                             )}
                             <button className="copy-btn" onClick={handleCopy} aria-label="Copy IP address to clipboard">
-                                {copied ? "✓ Copied" : "📋 Copy"}
+                                {copied ? t(locale, "copy.done") : t(locale, "copy.btn")}
                             </button>
                         </div>
                     </div>
@@ -288,13 +291,13 @@ export default function IPDashboard() {
             <div className="glass-card map-card animate-in">
                 <div className="card-header">
                     <div className="card-icon location">📍</div>
-                    <span className="card-title">Geolocation Map</span>
+                    <span className="card-title">{t(locale, "card.map")}</span>
                 </div>
                 <MapView lat={location.latitude} lng={location.longitude} />
                 <div className="map-coords">
-                    <span>📐 Lat: {location.latitude.toFixed(4)}</span>
-                    <span>📐 Lng: {location.longitude.toFixed(4)}</span>
-                    {location.postal && <span>📮 Postal: {location.postal}</span>}
+                    <span>📐 {t(locale, "field.lat")}: {location.latitude.toFixed(4)}</span>
+                    <span>📐 {t(locale, "field.lng")}: {location.longitude.toFixed(4)}</span>
+                    {location.postal && <span>📮 {t(locale, "field.postal")}: {location.postal}</span>}
                 </div>
             </div>
 
@@ -304,14 +307,14 @@ export default function IPDashboard() {
                 <div className="glass-card animate-in">
                     <div className="card-header">
                         <div className="card-icon location">🌍</div>
-                        <span className="card-title">Location</span>
+                        <span className="card-title">{t(locale, "card.location")}</span>
                     </div>
                     <div className="card-body">
-                        <InfoRow label="Continent" value={`${location.continent.name} (${location.continent.code})`} />
-                        <InfoRow label="Country" value={`${location.country.flag.emoji} ${location.country.name} (${location.country.code})`} />
-                        <InfoRow label="Region" value={`${location.region.name} (${location.region.code})`} />
-                        <InfoRow label="City" value={location.city} />
-                        <InfoRow label="Postal Code" value={location.postal || "N/A"} />
+                        <InfoRow label={t(locale, "field.continent")} value={`${location.continent.name} (${location.continent.code})`} />
+                        <InfoRow label={t(locale, "field.country")} value={`${location.country.flag.emoji} ${location.country.name} (${location.country.code})`} />
+                        <InfoRow label={t(locale, "field.region")} value={`${location.region.name} (${location.region.code})`} />
+                        <InfoRow label={t(locale, "field.city")} value={location.city} />
+                        <InfoRow label={t(locale, "field.postal")} value={location.postal || t(locale, "na")} />
                     </div>
                 </div>
 
@@ -319,13 +322,13 @@ export default function IPDashboard() {
                 <div className="glass-card animate-in">
                     <div className="card-header">
                         <div className="card-icon network">🌐</div>
-                        <span className="card-title">Network / ISP</span>
+                        <span className="card-title">{t(locale, "card.network")}</span>
                     </div>
                     <div className="card-body">
-                        <InfoRow label="ASN" value={`AS${connection.asn}`} />
-                        <InfoRow label="Organization" value={connection.organization} />
-                        <InfoRow label="Connection Type" value={connection.type} />
-                        <InfoRow label="Hostname" value={ipData.hostname || "N/A"} />
+                        <InfoRow label={t(locale, "field.asn")} value={`AS${connection.asn}`} />
+                        <InfoRow label={t(locale, "field.org")} value={connection.organization} />
+                        <InfoRow label={t(locale, "field.connType")} value={connection.type} />
+                        <InfoRow label={t(locale, "field.hostname")} value={ipData.hostname || t(locale, "na")} />
                     </div>
                 </div>
 
@@ -333,12 +336,12 @@ export default function IPDashboard() {
                 <div className="glass-card animate-in">
                     <div className="card-header">
                         <div className="card-icon time">🕐</div>
-                        <span className="card-title">Timezone</span>
+                        <span className="card-title">{t(locale, "card.timezone")}</span>
                     </div>
                     <div className="card-body">
-                        <InfoRow label="Timezone" value={time_zone.id} />
-                        <InfoRow label="Abbreviation" value={time_zone.abbreviation} />
-                        <InfoRow label="UTC Offset" value={formatOffset(time_zone.offset)} />
+                        <InfoRow label={t(locale, "field.timezone")} value={time_zone.id} />
+                        <InfoRow label={t(locale, "field.abbreviation")} value={time_zone.abbreviation} />
+                        <InfoRow label={t(locale, "field.utcOffset")} value={formatOffset(time_zone.offset)} />
                     </div>
                 </div>
 
@@ -347,12 +350,12 @@ export default function IPDashboard() {
                     <div className="glass-card animate-in">
                         <div className="card-header">
                             <div className="card-icon currency">💰</div>
-                            <span className="card-title">Currency</span>
+                            <span className="card-title">{t(locale, "card.currency")}</span>
                         </div>
                         <div className="card-body">
-                            <InfoRow label="Currency" value={currency.name} />
-                            <InfoRow label="Code" value={currency.code} />
-                            <InfoRow label="Symbol" value={currency.symbol} />
+                            <InfoRow label={t(locale, "field.currency")} value={currency.name} />
+                            <InfoRow label={t(locale, "field.code")} value={currency.code} />
+                            <InfoRow label={t(locale, "field.symbol")} value={currency.symbol} />
                         </div>
                     </div>
                 )}
@@ -362,13 +365,13 @@ export default function IPDashboard() {
             <div className="glass-card animate-in">
                 <div className="card-header">
                     <div className="card-icon security">🛡️</div>
-                    <span className="card-title">Security Analysis</span>
+                    <span className="card-title">{t(locale, "card.security")}</span>
                 </div>
                 <div className="security-grid">
-                    <SecurityBadge label="VPN" detected={security.is_vpn} icon="🔒" />
-                    <SecurityBadge label="Proxy" detected={security.is_proxy} icon="🔄" />
-                    <SecurityBadge label="Tor Exit Node" detected={security.is_tor} icon="🧅" />
-                    <SecurityBadge label="Known Threat" detected={security.is_threat} icon="⚠️" />
+                    <SecurityBadge label={t(locale, "security.vpn")} detected={security.is_vpn} icon="🔒" locale={locale} />
+                    <SecurityBadge label={t(locale, "security.proxy")} detected={security.is_proxy} icon="🔄" locale={locale} />
+                    <SecurityBadge label={t(locale, "security.tor")} detected={security.is_tor} icon="🧅" locale={locale} />
+                    <SecurityBadge label={t(locale, "security.threat")} detected={security.is_threat} icon="⚠️" locale={locale} />
                 </div>
             </div>
         </>

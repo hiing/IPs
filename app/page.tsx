@@ -1,6 +1,17 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import IPDashboard from "./components/IPDashboard";
+import LanguageSelector from "./components/LanguageSelector";
+import { type Locale, detectLocale, t } from "./i18n/translations";
 
 export default function Home() {
+    const [locale, setLocale] = useState<Locale>("en");
+
+    useEffect(() => {
+        setLocale(detectLocale());
+    }, []);
+
     return (
         <>
             <div className="bg-orbs">
@@ -10,20 +21,20 @@ export default function Home() {
             </div>
             <div className="app-container">
                 <header className="header">
-                    <div className="header-badge">
-                        <span className="dot" />
-                        Live IP Intelligence
+                    <div className="header-top-row">
+                        <div className="header-badge">
+                            <span className="dot" />
+                            {t(locale, "header.badge")}
+                        </div>
+                        <LanguageSelector locale={locale} onChange={setLocale} />
                     </div>
-                    <h1>IP Insight</h1>
-                    <p>
-                        Premium IP geolocation lookup with real-time security analysis,
-                        network intelligence, and interactive mapping.
-                    </p>
+                    <h1>{t(locale, "header.title")}</h1>
+                    <p>{t(locale, "header.desc")}</p>
                 </header>
-                <IPDashboard />
+                <IPDashboard locale={locale} />
                 <footer className="footer">
                     <p>
-                        Powered by{" "}
+                        {t(locale, "footer.poweredBy")}{" "}
                         <a
                             href="https://ipinfo.dkly.net"
                             target="_blank"
@@ -31,7 +42,7 @@ export default function Home() {
                         >
                             dklyIPdatabase
                         </a>{" "}
-                        · Built with vinext on Cloudflare Workers
+                        · {t(locale, "footer.builtWith")}
                     </p>
                 </footer>
             </div>

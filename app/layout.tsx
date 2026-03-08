@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+const themeInitScript = `
+(() => {
+  const storageKey = "ip-insight-theme";
+  const savedTheme = window.localStorage.getItem(storageKey);
+  const theme = savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light";
+  document.documentElement.dataset.theme = theme;
+})();
+`;
+
 export const metadata: Metadata = {
     title: "IP Insight — IP Geolocation & Security Analysis",
     description:
@@ -13,7 +22,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="en">
+        <html lang="en" data-theme="light" suppressHydrationWarning>
             <head>
                 <link
                     rel="preconnect"
@@ -34,6 +43,7 @@ export default function RootLayout({
                     crossOrigin=""
                 />
                 <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+                <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
             </head>
             <body>{children}</body>
         </html>

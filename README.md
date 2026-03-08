@@ -2,343 +2,6 @@
 
 # 🌐 IP Insight
 
-**Premium IP Address Intelligence Platform**
-
-[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
-[![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
-[![License](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
-
-A modern IP intelligence web app built with **React + Vite + Cloudflare Workers**  
-Featuring a premium glassmorphism dark UI, interactive maps, and comprehensive security analysis
-
-[🔗 Live Demo](https://ips.away.workers.dev) · [🐛 Report Bug](https://github.com/hiing/IPs/issues) · [💡 Feature Request](https://github.com/hiing/IPs/issues)
-
-**🌏 [中文](#-ip-insight-1)**
-
----
-
-</div>
-
-## 📋 Table of Contents
-
-- [✨ Features](#-features)
-- [🏗️ Tech Stack](#️-tech-stack)
-- [📁 Project Structure](#-project-structure)
-- [🔧 Local Development](#-local-development)
-- [🚀 Deploy to Cloudflare Workers](#-deploy-to-cloudflare-workers)
-- [🔒 Security Design](#-security-design)
-- [📡 API Documentation](#-api-documentation)
-- [📜 License](#-license)
-- [🙏 Acknowledgements](#-acknowledgements)
-
----
-
-## ✨ Features
-
-<table>
-<tr>
-<td width="50%">
-
-### 🌍 IP Geolocation
-- 🔄 **IPv4 / IPv6** dual-stack support
-- 📡 Auto-detect visitor IP address
-- 📍 Precise to **Continent → Country → Region → City → Postal**
-- 🗺️ **Leaflet** dark-themed interactive map
-- 📐 Real-time latitude/longitude display
-
-</td>
-<td width="50%">
-
-### 🔌 Network & Connection
-- 🏷️ ASN (Autonomous System Number) lookup
-- 🏢 ISP / Organization identification
-- 📶 Connection type (hosting / residential, etc.)
-- 🔗 Reverse DNS (Hostname) resolution
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### 🛡️ Security Threat Analysis
-- 🔒 VPN detection
-- 🔄 Proxy server detection
-- 🧅 Tor exit node detection
-- ⚠️ Known threat IP flagging
-- 🟢🔴 Intuitive security status indicators
-
-</td>
-<td width="50%">
-
-### 🎨 UI / UX Design
-- 🌑 Premium dark **Glassmorphism** design
-- ✨ Smooth entrance animations & micro-interactions
-- 📱 Fully responsive, mobile-friendly
-- 🔤 Google Fonts **Inter** typography
-- 🎭 Dynamic gradient background orbs
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### 🕐 Timezone Info
-- 🌐 Timezone ID & abbreviation
-- ⏱️ Precise UTC offset calculation
-
-</td>
-<td width="50%">
-
-### 💰 Currency Info
-- 💱 Country-specific currency code
-- 📛 Currency name & symbol display
-
-</td>
-</tr>
-</table>
-
----
-
-## 🏗️ Tech Stack
-
-<div align="center">
-
-| 🏷️ Category | 🛠️ Technology | 📌 Version |
-|:---:|:---:|:---:|
-| ⚛️ Frontend | React + TypeScript | 19.x |
-| ⚡ Build Tool | Vite + vinext | 7.x |
-| 🗺️ Map Engine | Leaflet | 1.9.x |
-| ☁️ Runtime | Cloudflare Workers | Edge |
-| 📊 Data Source | [dklyIPdatabase](https://ipinfo.dkly.net) | REST API |
-| 🎨 Styling | Vanilla CSS | Dark Theme System |
-
-</div>
-
----
-
-## 📁 Project Structure
-
-```
-IPs/
-├── 📂 app/
-│   ├── 📂 api/
-│   │   └── 📂 ipinfo/
-│   │       └── 📄 route.ts           # 🔌 Server API (proxy + rate-limit + validation)
-│   ├── 📂 components/
-│   │   └── 📄 IPDashboard.tsx        # 📊 Main dashboard component
-│   ├── 🎨 globals.css                # 🎨 Global styles & design system
-│   ├── 📄 layout.tsx                 # 📐 Root layout (fonts, Leaflet CSS)
-│   ├── 📄 page.tsx                   # 🏠 Home page
-│   └── 🖼️ favicon.ico
-├── 📄 worker-entry.js                # ☁️ Cloudflare Worker entry point
-├── 📦 package.json
-├── 📄 tsconfig.json
-├── ⚡ vite.config.ts                 # Vite + vinext config
-├── ☁️ wrangler.jsonc                 # Cloudflare Workers config
-└── 📄 next.config.js
-```
-
----
-
-## 🔧 Local Development
-
-### 📋 Prerequisites
-
-| Tool | Min Version | Note |
-|:---:|:---:|:---:|
-| ![Node.js](https://img.shields.io/badge/Node.js-≥18-339933?style=flat-square&logo=node.js&logoColor=white) | 18+ | JavaScript runtime |
-| ![npm](https://img.shields.io/badge/npm-≥9-CB3837?style=flat-square&logo=npm&logoColor=white) | 9+ | Package manager |
-| 🔑 API Key | — | [Free registration](https://ipinfo.dkly.net/dashboard/register.php) |
-
-### 📝 Steps
-
-**1️⃣ Clone the repo**
-```bash
-git clone https://github.com/hiing/IPs.git
-cd IPs
-```
-
-**2️⃣ Install dependencies**
-```bash
-npm install
-```
-
-**3️⃣ Configure environment variables**
-
-Create a `.env.local` file:
-```env
-IPINFO_API_KEY=your_api_key_here
-```
-
-> [!WARNING]
-> 🔐 Never commit your API Key to version control!
-
-**4️⃣ Start the dev server**
-```bash
-npm run dev
-```
-
-**5️⃣ Open your browser**
-
-Navigate to `http://localhost:3000` 🎉
-
----
-
-## 🚀 Deploy to Cloudflare Workers
-
-### 📌 Option 1: CLI Deploy (Recommended)
-
-**1️⃣ Login to Cloudflare**
-```bash
-npx wrangler login
-```
-
-**2️⃣ Set API Key Secret**
-```bash
-npx wrangler secret put IPINFO_API_KEY
-# Enter your dklyIPdatabase API Key when prompted
-```
-
-**3️⃣ Build & Deploy**
-```bash
-npx vinext build
-npx wrangler deploy
-```
-
-> [!TIP]
-> 🔁 For subsequent updates, just repeat step 3!
-
-### 📌 Option 2: Cloudflare Dashboard
-
-1. 🔑 Log in to [Cloudflare Dashboard](https://dash.cloudflare.com)
-2. 📂 Go to **Workers & Pages** → **Create**
-3. 🔗 Connect your Git repository
-4. ⚙️ Configure build settings:
-
-   | Setting | Value |
-   |:---:|:---:|
-   | Build command | `npm run build` |
-   | Build output | `dist` |
-
-5. 🔐 Add `IPINFO_API_KEY` in **Settings → Environment Variables**
-6. 🚀 Trigger deploy
-
----
-
-## 🔒 Security Design
-
-| 🛡️ Measure | 📝 Description |
-|:---:|:---|
-| 🔐 **API Key Protection** | Key stored server-side only, invisible to frontend |
-| ⏱️ **Rate Limiting** | Max **30** requests per IP per minute |
-| ✅ **Input Validation** | Strict IPv4/IPv6 regex validation |
-| 💾 **Response Caching** | `Cache-Control` headers reduce upstream API calls |
-| 🌐 **CORS Isolation** | Server-side proxy prevents credential exposure |
-
----
-
-## 📡 API Documentation
-
-### 🔀 Request Flow
-
-```
-🖥️ Client → 📡 /api/ipinfo → 🔒 Server (rate-limit + validation) → 🌐 dklyIPdatabase API → 📦 Response
-```
-
-### 📥 Request Examples
-
-```bash
-# 🔍 Query a specific IP
-curl https://ips.away.workers.dev/api/ipinfo?ip=8.8.8.8
-
-# 📡 Query visitor's own IP
-curl https://ips.away.workers.dev/api/ipinfo
-```
-
-### 📤 Response Example
-
-```json
-{
-  "ip": "8.8.8.8",
-  "type": "IPv4",
-  "hostname": "dns.google",
-  "connection": {
-    "asn": 15169,
-    "organization": "Google LLC",
-    "type": "hosting"
-  },
-  "location": {
-    "continent": { "code": "NA", "name": "North America" },
-    "country": { "code": "US", "name": "United States", "flag": { "emoji": "🇺🇸" } },
-    "region": { "code": "CA", "name": "California" },
-    "city": "Mountain View",
-    "postal": "94043",
-    "latitude": 37.4056,
-    "longitude": -122.0775
-  },
-  "time_zone": {
-    "id": "America/Los_Angeles",
-    "abbreviation": "PST",
-    "offset": -28800
-  },
-  "currency": {
-    "code": "USD",
-    "name": "United States Dollar",
-    "symbol": "$"
-  },
-  "security": {
-    "is_vpn": false,
-    "is_proxy": false,
-    "is_tor": false,
-    "is_threat": false
-  }
-}
-```
-
-### 📊 Status Codes
-
-| Code | 🏷️ Meaning |
-|:---:|:---|
-| ✅ `200` | Success |
-| ❌ `400` | Invalid IP format |
-| 🚫 `429` | Rate limit exceeded |
-| 💥 `500` | Server config error (e.g., missing API Key) |
-| 🔌 `502` | Upstream API unavailable |
-
----
-
-## 📜 License
-
-This project is open-sourced under the [MIT](LICENSE) License 📄
-
----
-
-## 🙏 Acknowledgements
-
-<div align="center">
-
-| Project | Description |
-|:---:|:---:|
-| 📊 [dklyIPdatabase](https://ipinfo.dkly.net) | IP geolocation & security data API |
-| 🗺️ [Leaflet](https://leafletjs.com) | Open-source interactive map library |
-| ⚡ [vinext](https://developers.cloudflare.com/workers/frameworks/vinext/) | Cloudflare's Vite + Next.js framework |
-| ☁️ [Cloudflare Workers](https://workers.cloudflare.com) | Global edge computing platform |
-| ⚛️ [React](https://react.dev) | UI component library |
-
-</div>
-
----
-
-<br>
-
----
-
-<div align="center">
-
-# 🌐 IP Insight
-
 **高级 IP 地址智能分析平台**
 
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://workers.cloudflare.com)
@@ -347,12 +10,12 @@ This project is open-sourced under the [MIT](LICENSE) License 📄
 [![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
 [![License](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
 
-一个基于 **React + Vite + Cloudflare Workers** 构建的现代化 IP 地址情报查询 Web 应用  
-拥有精美暗色玻璃态 UI、交互式地图与全方位安全威胁分析
+一个基于 **React + Vite + Cloudflare Workers** 构建的现代化 IP 地址情报查询 Web 应用。  
+拥有精美玻璃态 UI、交互式地图、完整安全威胁分析，并支持 **浅色 / 深色主题切换**。
 
 [🔗 在线演示](https://ips.away.workers.dev) · [🐛 报告问题](https://github.com/hiing/IPs/issues) · [💡 功能建议](https://github.com/hiing/IPs/issues)
 
-**🌏 [English](#-ip-insight)**
+**🌏 [英文文档](./README.en.md)**
 
 ---
 
@@ -382,7 +45,7 @@ This project is open-sourced under the [MIT](LICENSE) License 📄
 - 🔄 支持 **IPv4 / IPv6** 双栈查询
 - 📡 自动检测访客 IP 地址
 - 📍 精确到 **洲 → 国家 → 地区 → 城市 → 邮编**
-- 🗺️ **Leaflet** 暗色风格交互式地图展示
+- 🗺️ **Leaflet** 交互式地图展示，支持浅色 / 深色地图切换
 - 📐 经纬度坐标实时显示
 
 </td>
@@ -410,7 +73,7 @@ This project is open-sourced under the [MIT](LICENSE) License 📄
 <td width="50%">
 
 ### 🎨 UI / UX 设计
-- 🌑 精美暗色 **玻璃态（Glassmorphism）** 设计
+- 🌗 精美 **Glassmorphism** 设计，支持浅色 / 深色主题
 - ✨ 流畅入场动画 & 微交互效果
 - 📱 完全响应式布局，移动端友好
 - 🔤 Google Fonts **Inter** 字体
@@ -449,7 +112,7 @@ This project is open-sourced under the [MIT](LICENSE) License 📄
 | 🗺️ 地图引擎 | Leaflet | 1.9.x |
 | ☁️ 运行平台 | Cloudflare Workers | Edge |
 | 📊 数据源 | [dklyIPdatabase](https://ipinfo.dkly.net) | REST API |
-| 🎨 样式方案 | Vanilla CSS | 暗色主题设计系统 |
+| 🎨 样式方案 | Vanilla CSS | 浅色 / 深色主题设计系统 |
 
 </div>
 
@@ -457,7 +120,7 @@ This project is open-sourced under the [MIT](LICENSE) License 📄
 
 ## 📁 项目结构
 
-```
+```text
 IPs/
 ├── 📂 app/
 │   ├── 📂 api/
@@ -465,7 +128,7 @@ IPs/
 │   │       └── 📄 route.ts           # 🔌 服务端 API（代理 + 限流 + 验证）
 │   ├── 📂 components/
 │   │   └── 📄 IPDashboard.tsx        # 📊 主仪表盘组件
-│   ├── 🎨 globals.css                # 🎨 全局样式 & 设计系统
+│   ├── 🎨 globals.css                # 🎨 全局样式与主题设计系统
 │   ├── 📄 layout.tsx                 # 📐 根布局（字体、Leaflet CSS）
 │   ├── 📄 page.tsx                   # 🏠 首页
 │   └── 🖼️ favicon.ico
@@ -580,7 +243,7 @@ npx wrangler deploy
 
 ### 🔀 请求流程
 
-```
+```text
 🖥️ 客户端 → 📡 /api/ipinfo → 🔒 服务端（限流 + 验证） → 🌐 dklyIPdatabase API → 📦 返回结果
 ```
 
@@ -670,8 +333,6 @@ curl https://ips.away.workers.dev/api/ipinfo
 
 <div align="center">
 
-**⭐ Star this repo if you find it helpful! ⭐**
-
-Made with ❤️ by [hiing](https://github.com/hiing)
+由 [hiing](https://github.com/hiing) 用 ❤️ 制作
 
 </div>

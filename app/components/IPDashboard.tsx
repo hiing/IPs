@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import type { Map as LeafletMap } from "leaflet";
 import { type Locale, t } from "../i18n/translations";
 
 // ===== Types =====
@@ -40,19 +41,28 @@ interface IPData {
     };
 }
 
+type Theme = "light" | "dark";
+
+const LIGHT_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const DARK_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+
 // ===== Map Component (lazy loaded) =====
-function MapView({ lat, lng }: { lat: number; lng: number }) {
+function MapView({ lat, lng, theme }: { lat: number; lng: number; theme: Theme }) {
     const mapRef = useRef<HTMLDivElement>(null);
-    const mapInstanceRef = useRef<any>(null);
+    const mapInstanceRef = useRef<LeafletMap | null>(null);
 
     useEffect(() => {
         if (!mapRef.current || typeof window === "undefined") return;
+        let isDisposed = false;
 
         const loadMap = async () => {
             const L = (await import("leaflet")).default;
+            if (isDisposed || !mapRef.current) return;
 
-            // Fix default marker icon
-            delete (L.Icon.Default.prototype as any)._getIconUrl;
+            const defaultIconPrototype = L.Icon.Default.prototype as typeof L.Icon.Default.prototype & {
+                _getIconUrl?: string;
+            };
+            delete defaultIconPrototype._getIconUrl;
             L.Icon.Default.mergeOptions({
                 iconRetinaUrl:
                     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -62,45 +72,38 @@ function MapView({ lat, lng }: { lat: number; lng: number }) {
                     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
             });
 
-            if (mapInstanceRef.current) {
-                mapInstanceRef.current.setView([lat, lng], 12);
-                mapInstanceRef.current.eachLayer((layer: any) => {
-                    if (layer instanceof L.Marker) {
-                        mapInstanceRef.current.removeLayer(layer);
-                    }
-                });
-                L.marker([lat, lng]).addTo(mapInstanceRef.current);
-                return;
-            }
+            const tileUrl = theme === "dark" ? DARK_TILE_URL : LIGHT_TILE_URL;
 
             const map = L.map(mapRef.current!, {
                 zoomControl: true,
                 attributionControl: false,
             }).setView([lat, lng], 12);
 
-            L.tileLayer(
-                "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-                {
-                    maxZoom: 19,
-                }
-            ).addTo(map);
+            L.tileLayer(tileUrl, {
+                maxZoom: 19,
+            }).addTo(map);
 
             L.marker([lat, lng]).addTo(map);
             mapInstanceRef.current = map;
 
             // Fix rendering in hidden containers
-            setTimeout(() => map.invalidateSize(), 100);
+            window.setTimeout(() => {
+                if (!isDisposed) {
+                    map.invalidateSize();
+                }
+            }, 100);
         };
 
         loadMap();
 
         return () => {
+            isDisposed = true;
             if (mapInstanceRef.current) {
                 mapInstanceRef.current.remove();
                 mapInstanceRef.current = null;
             }
         };
-    }, [lat, lng]);
+    }, [lat, lng, theme]);
 
     return <div ref={mapRef} className="map-container" />;
 }
@@ -291,7 +294,7 @@ function isHongKongLocation(data: Pick<IPData, "location" | "time_zone" | "curre
 }
 
 // ===== Main Dashboard =====
-export default function IPDashboard({ locale }: { locale: Locale }) {
+export default function IPDashboard({ locale, theme }: { locale: Locale; theme: Theme }) {
     const [ipData, setIpData] = useState<IPData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -311,13 +314,13 @@ export default function IPDashboard({ locale }: { locale: Locale }) {
                 cache: "no-store",
             });
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || `Request failed (${res.status})`);
+                const errorData: { error?: string } | null = await res.json().catch(() => null);
+                throw new Error(errorData?.error || `Request failed (${res.status})`);
             }
             const data: IPData = await res.json();
             setIpData(data);
-        } catch (err: any) {
-            setError(err.message || "Failed to fetch IP data");
+        } catch (error: unknown) {
+            setError(error instanceof Error ? error.message : "Failed to fetch IP data");
         } finally {
             setLoading(false);
         }
@@ -468,7 +471,7 @@ export default function IPDashboard({ locale }: { locale: Locale }) {
                     <div className="card-icon location">📍</div>
                     <span className="card-title">{t(locale, "card.map")}</span>
                 </div>
-                <MapView lat={location.latitude} lng={location.longitude} />
+                <MapView lat={location.latitude} lng={location.longitude} theme={theme} />
                 <div className="map-coords">
                     <span>📐 {t(locale, "field.lat")}: {location.latitude.toFixed(4)}</span>
                     <span>📐 {t(locale, "field.lng")}: {location.longitude.toFixed(4)}</span>

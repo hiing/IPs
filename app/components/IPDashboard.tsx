@@ -142,24 +142,151 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     );
 }
 
+const API_NORMALIZATION_VERSION = "hk-normalize-v2";
 const HONG_KONG_KEYWORDS = [/hong kong/i, /香港/u];
+const HONG_KONG_DISTRICT_KEYWORDS = [
+    /kowloon/i,
+    /quarry bay/i,
+    /causeway bay/i,
+    /wan chai/i,
+    /wong tai sin/i,
+    /tsim sha tsui/i,
+    /sha tin/i,
+    /tsuen wan/i,
+    /kwun tong/i,
+    /yuen long/i,
+    /tuen mun/i,
+    /tai po/i,
+    /sai kung/i,
+    /hong kong island/i,
+    /new territories/i,
+    /eastern district/i,
+    /southern district/i,
+    /north district/i,
+    /islands district/i,
+    /yau tsim mong/i,
+    /九龍/u,
+    /新界/u,
+    /灣仔/u,
+    /黄大仙/u,
+    /黃大仙/u,
+    /沙田/u,
+    /荃灣/u,
+    /觀塘/u,
+    /元朗/u,
+    /屯門/u,
+    /大埔/u,
+    /西貢/u,
+    /港島/u,
+];
+
+function canonicalizeHongKongString(value: string): string {
+    return value
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "")
+        .replace(/[-_]/g, "")
+        .replace(/[^a-z0-9\u4e00-\u9fa5$]/g, "");
+}
+
+const HK_ALIAS_RAW: string[] = [
+    "hong kong",
+    "hong kong sar",
+    "香港特别行政区",
+    "香港特別行政區",
+    "中国香港",
+    "中國香港",
+    "hksar",
+    "hk",
+    "hkt",
+    "hkst",
+    "hk dollar",
+    "hong kong dollar",
+    "hk$",
+    "hkg",
+];
+const HK_CANONICALS = new Set<string>(HK_ALIAS_RAW.map((s) => canonicalizeHongKongString(s)));
+// Markers for containment-based HK detection
+const HK_MARKERS_RAW: string[] = [
+    "hong kong",
+    "hong kong sar",
+    "香港特别行政区",
+    "香港特別行政區",
+    "中国香港",
+    "中國香港",
+    "hksar",
+    "kowloon",
+    "new territories",
+    "hong kong island",
+    "hong kong island",
+    "九龙",
+    "九龍",
+    "新界",
+    "香港島",
+    "香港岛",
+    "prc hong kong sar",
+    "china hong kong",
+];
+const HK_MARKERS_CANONICALS = new Set<string>(HK_MARKERS_RAW.map((s) => canonicalizeHongKongString(s)));
 
 function isHongKongValue(value: string | undefined): boolean {
-    return value ? HONG_KONG_KEYWORDS.some((pattern) => pattern.test(value)) : false;
+    const v = value ?? "";
+    const canon = canonicalizeHongKongString(v);
+    return HK_CANONICALS.has(canon);
 }
+
+function isHongKongDistrict(value: string | undefined): boolean {
+    return value ? HONG_KONG_DISTRICT_KEYWORDS.some((pattern) => pattern.test(value)) : false;
+}
+
+function isChinaValue(value: string | undefined): boolean {
+    return value ? /china|中国|中國/i.test(value) : false;
+}
+
+function isHongKongCoordinate(latitude: number, longitude: number): boolean {
+    return latitude >= 22.15 && latitude <= 22.6 && longitude >= 113.8 && longitude <= 114.5;
+}
+
 
 function isHongKongLocation(data: Pick<IPData, "location" | "time_zone" | "currency">): boolean {
     const countryCode = data.location.country.code?.toUpperCase() ?? "";
+    const countryName = data.location.country.name;
     const regionCode = data.location.region.code?.toUpperCase() ?? "";
+    const regionName = data.location.region.name;
     const currencyCode = data.currency?.code?.toUpperCase() ?? "";
+    const cityName = data.location.city;
+    const timeZoneId = data.time_zone.id?.toUpperCase() ?? "";
+    const timeZoneAbbreviation = data.time_zone.abbreviation?.toUpperCase() ?? "";
+    const currencyName = data.currency?.name;
+    const currencySymbol = data.currency?.symbol;
+
+    const currencyNameIsHK = isHongKongValue(currencyName);
+    const currencySymbolIsHK = !!currencySymbol && currencySymbol.toUpperCase().includes("HK$");
+    const currencyCodeIsHKD = currencyCode === "HKD";
+    const isHKCurrency = currencyCodeIsHKD || currencyNameIsHK || currencySymbolIsHK;
+
+    const hasHongKongTextSignal =
+        isHongKongValue(countryName) ||
+        isHongKongValue(regionName) ||
+        isHongKongValue(cityName) ||
+        isHongKongDistrict(regionName) ||
+        isHongKongDistrict(cityName);
+    const hasHongKongCoordinateSignal = isHongKongCoordinate(data.location.latitude, data.location.longitude);
+    const hasHongKongTimeZoneSignal =
+        timeZoneId === "ASIA/HONG_KONG" || timeZoneAbbreviation === "HKT" || timeZoneAbbreviation === "HKST";
+    const looksLikeChina =
+        countryCode === "CN" || isChinaValue(countryName) || currencyCode === "CNY" || currencySymbol === "¥";
 
     return (
         countryCode === "HK" ||
+        countryCode === "HKG" ||
+        countryCode === "CN-HK" ||
         regionCode === "HK" ||
-        currencyCode === "HKD" ||
-        isHongKongValue(data.location.country.name) ||
-        isHongKongValue(data.location.region.name) ||
-        data.time_zone.id === "Asia/Hong_Kong"
+        isHKCurrency ||
+        hasHongKongTextSignal ||
+        hasHongKongTimeZoneSignal ||
+        (looksLikeChina && (hasHongKongTimeZoneSignal || hasHongKongTextSignal)) ||
+        (hasHongKongCoordinateSignal && (hasHongKongTimeZoneSignal || hasHongKongTextSignal))
     );
 }
 
@@ -175,10 +302,14 @@ export default function IPDashboard({ locale }: { locale: Locale }) {
         setLoading(true);
         setError(null);
         try {
-            const url = ip
-                ? `/api/ipinfo?ip=${encodeURIComponent(ip)}`
-                : `/api/ipinfo`;
-            const res = await fetch(url);
+            const params = new URLSearchParams({ v: API_NORMALIZATION_VERSION });
+            if (ip) {
+                params.set("ip", ip);
+            }
+
+            const res = await fetch(`/api/ipinfo?${params.toString()}`, {
+                cache: "no-store",
+            });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.error || `Request failed (${res.status})`);

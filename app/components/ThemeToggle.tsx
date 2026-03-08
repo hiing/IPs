@@ -25,10 +25,14 @@ export default function ThemeToggle({
             role="switch"
             aria-checked={!isLight}
             aria-label={ariaLabel}
+            data-state={theme}
         >
             <span className="theme-toggle-track">
                 <span className={`theme-toggle-thumb ${isLight ? "light" : "dark"}`} aria-hidden="true">
-                    <span className="theme-toggle-thumb-icon">{isLight ? "☀" : "☾"}</span>
+                    <span className="theme-toggle-thumb-icon">
+                        <span className="theme-toggle-icon theme-toggle-icon-light">☀</span>
+                        <span className="theme-toggle-icon theme-toggle-icon-dark">☾</span>
+                    </span>
                 </span>
                 <span className="theme-toggle-option" aria-hidden="true">
                     <span className={`theme-toggle-chip ${isLight ? "active" : ""}`}>{lightLabel}</span>

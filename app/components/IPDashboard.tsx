@@ -142,6 +142,27 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     );
 }
 
+const HONG_KONG_KEYWORDS = [/hong kong/i, /香港/u];
+
+function isHongKongValue(value: string | undefined): boolean {
+    return value ? HONG_KONG_KEYWORDS.some((pattern) => pattern.test(value)) : false;
+}
+
+function isHongKongLocation(data: Pick<IPData, "location" | "time_zone" | "currency">): boolean {
+    const countryCode = data.location.country.code?.toUpperCase() ?? "";
+    const regionCode = data.location.region.code?.toUpperCase() ?? "";
+    const currencyCode = data.currency?.code?.toUpperCase() ?? "";
+
+    return (
+        countryCode === "HK" ||
+        regionCode === "HK" ||
+        currencyCode === "HKD" ||
+        isHongKongValue(data.location.country.name) ||
+        isHongKongValue(data.location.region.name) ||
+        data.time_zone.id === "Asia/Hong_Kong"
+    );
+}
+
 // ===== Main Dashboard =====
 export default function IPDashboard({ locale }: { locale: Locale }) {
     const [ipData, setIpData] = useState<IPData | null>(null);
@@ -229,6 +250,29 @@ export default function IPDashboard({ locale }: { locale: Locale }) {
     if (!ipData) return null;
 
     const { location, connection, time_zone, currency, security } = ipData;
+    const shouldNormalizeHongKong = isHongKongLocation({ location, time_zone, currency });
+    const displayCountry = shouldNormalizeHongKong
+        ? {
+              code: "HK",
+              name: "Hong Kong",
+              flagEmoji: "🇭🇰",
+          }
+        : {
+              code: location.country.code,
+              name: location.country.name,
+              flagEmoji: location.country.flag.emoji,
+          };
+    const displayCurrency = shouldNormalizeHongKong
+        ? {
+              code: "HKD",
+              name: "Hong Kong Dollar",
+              symbol: "HK$",
+          }
+        : currency;
+    const hasDedicatedRegion =
+        Boolean(location.region.name) &&
+        (!shouldNormalizeHongKong || !isHongKongValue(location.region.name)) &&
+        location.region.name.trim().toLowerCase() !== displayCountry.name.trim().toLowerCase();
 
     return (
         <>
@@ -264,7 +308,7 @@ export default function IPDashboard({ locale }: { locale: Locale }) {
             {/* IP Header Card */}
             <div className="ip-header-card animate-in">
                 <div className="ip-main-info">
-                    <span className="ip-flag">{location.country.flag.emoji}</span>
+                    <span className="ip-flag">{displayCountry.flagEmoji}</span>
                     <div className="ip-details">
                         <h2>{ipData.ip}</h2>
                         <div className="ip-meta">
@@ -281,7 +325,7 @@ export default function IPDashboard({ locale }: { locale: Locale }) {
                 <div className="ip-location-text">
                     <div className="city">{location.city}</div>
                     <div>
-                        {location.region.name}, {location.country.name}
+                        {hasDedicatedRegion ? `${location.region.name}, ${displayCountry.name}` : displayCountry.name}
                     </div>
                     <div>{location.continent.name}</div>
                 </div>
@@ -311,8 +355,8 @@ export default function IPDashboard({ locale }: { locale: Locale }) {
                     </div>
                     <div className="card-body">
                         <InfoRow label={t(locale, "field.continent")} value={`${location.continent.name} (${location.continent.code})`} />
-                        <InfoRow label={t(locale, "field.country")} value={`${location.country.flag.emoji} ${location.country.name} (${location.country.code})`} />
-                        <InfoRow label={t(locale, "field.region")} value={`${location.region.name} (${location.region.code})`} />
+                        <InfoRow label={t(locale, "field.country")} value={`${displayCountry.flagEmoji} ${displayCountry.name} (${displayCountry.code})`} />
+                        <InfoRow label={t(locale, "field.region")} value={hasDedicatedRegion ? `${location.region.name} (${location.region.code})` : t(locale, "na")} />
                         <InfoRow label={t(locale, "field.city")} value={location.city} />
                         <InfoRow label={t(locale, "field.postal")} value={location.postal || t(locale, "na")} />
                     </div>
@@ -346,16 +390,16 @@ export default function IPDashboard({ locale }: { locale: Locale }) {
                 </div>
 
                 {/* Currency Card */}
-                {currency && (
+                {displayCurrency && (
                     <div className="glass-card animate-in">
                         <div className="card-header">
                             <div className="card-icon currency">💰</div>
                             <span className="card-title">{t(locale, "card.currency")}</span>
                         </div>
                         <div className="card-body">
-                            <InfoRow label={t(locale, "field.currency")} value={currency.name} />
-                            <InfoRow label={t(locale, "field.code")} value={currency.code} />
-                            <InfoRow label={t(locale, "field.symbol")} value={currency.symbol} />
+                            <InfoRow label={t(locale, "field.currency")} value={displayCurrency.name} />
+                            <InfoRow label={t(locale, "field.code")} value={displayCurrency.code} />
+                            <InfoRow label={t(locale, "field.symbol")} value={displayCurrency.symbol} />
                         </div>
                     </div>
                 )}

@@ -254,11 +254,19 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    // Build upstream URL
-    let upstreamUrl = `https://ipinfo.dkly.net/api/?key=${apiKey}`;
-    if (ip) {
-        upstreamUrl += `&ip=${encodeURIComponent(ip)}`;
+    // Build upstream URL — always pass an explicit IP to the upstream API.
+    // Without an explicit IP, the upstream returns the Worker's own edge-node
+    // IP, which changes on every request and causes the "random IP" bug.
+    const lookupIp = ip || clientIp;
+
+    if (!lookupIp || lookupIp === "unknown") {
+        return NextResponse.json(
+            { error: "Unable to determine client IP address" },
+            { status: 400 }
+        );
     }
+
+    const upstreamUrl = `https://ipinfo.dkly.net/api/?key=${apiKey}&ip=${encodeURIComponent(lookupIp)}`;
 
     try {
         const response = await fetch(upstreamUrl, {

@@ -65,13 +65,13 @@ export default function Home() {
                 <IPDashboard locale={locale} theme={theme} />
                 <footer className="footer">
                     <p>
-                        {t(locale, "footer.poweredBy")}{" "}
+                        {t(locale, "footer.poweredBy")} {" "}
                         <a
                             href="https://ipinfo.dkly.net"
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            dklyIPdatabase
+                            {t(locale, "footer.providers")}
                         </a>{" "}
                         · {t(locale, "footer.builtWith")}
                     </p>

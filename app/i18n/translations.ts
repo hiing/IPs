@@ -37,6 +37,13 @@ const translations: Record<Locale, Record<string, string>> = {
         "loading.text": "Analyzing IP address...",
         "error.title": "Something went wrong",
         "error.retry": "Try Again",
+        "error.invalidIp": "The IP address format looks invalid.",
+        "error.rateLimited": "Too many requests. Please try again in a moment.",
+        "error.primaryNoCredits": "Primary provider is out of credits. Fallback data is being used.",
+        "error.primaryTimeout": "Primary provider timed out. Please retry shortly.",
+        "error.primaryFetchFailed": "Unable to reach the upstream provider right now.",
+        "error.ipUnavailable": "Unable to detect your IP address from the current request.",
+        "error.generic": "Failed to fetch IP data.",
 
         // Copy
         "copy.btn": "📋 Copy",
@@ -85,7 +92,10 @@ const translations: Record<Locale, Record<string, string>> = {
 
         // Footer
         "footer.poweredBy": "Powered by",
+        "footer.providers": "Multiple IP intelligence providers",
         "footer.builtWith": "Built with vinext on Cloudflare Workers",
+        "notice.partialTitle": "Partial data mode",
+        "notice.partialBody": "Primary provider is unavailable, so this result is served by a fallback source: {provider}. Security, ASN, and timezone details may be incomplete.",
 
         // General
         "na": "N/A",
@@ -104,6 +114,13 @@ const translations: Record<Locale, Record<string, string>> = {
         "loading.text": "正在分析 IP 地址...",
         "error.title": "出了点问题",
         "error.retry": "重试",
+        "error.invalidIp": "IP 地址格式不对。",
+        "error.rateLimited": "请求太快了，稍后再试。",
+        "error.primaryNoCredits": "主数据源额度不足，当前已使用降级数据。",
+        "error.primaryTimeout": "主数据源超时了，稍后再试。",
+        "error.primaryFetchFailed": "当前无法连接上游数据源。",
+        "error.ipUnavailable": "这次请求里没法识别你的 IP。",
+        "error.generic": "获取 IP 数据失败。",
         "copy.btn": "📋 复制",
         "copy.done": "✓ 已复制",
         "card.map": "地理位置地图",
@@ -136,7 +153,10 @@ const translations: Record<Locale, Record<string, string>> = {
         "security.detected": "已检测",
         "security.notDetected": "未检测到",
         "footer.poweredBy": "数据来源",
+        "footer.providers": "多个 IP 情报提供方",
         "footer.builtWith": "基于 vinext 构建于 Cloudflare Workers",
+        "notice.partialTitle": "部分数据模式",
+        "notice.partialBody": "主数据源当前不可用，因此这次结果来自降级数据源：{provider}。安全、ASN 和时区等细节可能不完整。",
         "na": "无",
     },
 
@@ -437,6 +457,11 @@ const translations: Record<Locale, Record<string, string>> = {
 
 export function t(locale: Locale, key: string): string {
     return translations[locale]?.[key] ?? translations.en[key] ?? key;
+}
+
+export function tf(locale: Locale, key: string, vars: Record<string, string>): string {
+    const template = t(locale, key);
+    return template.replace(/\{(\w+)\}/g, (_, name: string) => vars[name] ?? `{${name}}`);
 }
 
 export function detectLocale(): Locale {

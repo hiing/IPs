@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Map as LeafletMap } from "leaflet";
-import { type Locale, t } from "../i18n/translations";
+import { type Locale, t, tf } from "../i18n/translations";
 
 // ===== Types =====
 interface IPData {
@@ -47,6 +47,31 @@ interface IPData {
 }
 
 type Theme = "light" | "dark";
+
+type ApiErrorPayload = {
+    error?: string;
+    code?: string;
+};
+
+function mapErrorMessage(locale: Locale, payload: ApiErrorPayload | null, status: number): string {
+    switch (payload?.code) {
+        case "INVALID_IP":
+            return t(locale, "error.invalidIp");
+        case "RATE_LIMIT_EXCEEDED":
+            return t(locale, "error.rateLimited");
+        case "PRIMARY_NO_CREDITS":
+            return t(locale, "error.primaryNoCredits");
+        case "PRIMARY_TIMEOUT":
+            return t(locale, "error.primaryTimeout");
+        case "PRIMARY_FETCH_FAILED":
+        case "PRIMARY_UPSTREAM_ERROR":
+            return t(locale, "error.primaryFetchFailed");
+        case "IP_UNAVAILABLE":
+            return t(locale, "error.ipUnavailable");
+        default:
+            return payload?.error || (status >= 500 ? t(locale, "error.generic") : `Request failed (${status})`);
+    }
+}
 
 const LIGHT_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 const DARK_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
@@ -319,8 +344,8 @@ export default function IPDashboard({ locale, theme }: { locale: Locale; theme: 
                 cache: "no-store",
             });
             if (!res.ok) {
-                const errorData: { error?: string } | null = await res.json().catch(() => null);
-                throw new Error(errorData?.error || `Request failed (${res.status})`);
+                const errorData: ApiErrorPayload | null = await res.json().catch(() => null);
+                throw new Error(mapErrorMessage(locale, errorData, res.status));
             }
             const data: IPData = await res.json();
             setIpData(data);
@@ -329,7 +354,7 @@ export default function IPDashboard({ locale, theme }: { locale: Locale; theme: 
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [locale]);
 
     useEffect(() => {
         fetchIPData();
@@ -421,13 +446,11 @@ export default function IPDashboard({ locale, theme }: { locale: Locale; theme: 
                 <div className="glass-card animate-in" style={{ marginBottom: "1rem", border: "1px solid rgba(245, 158, 11, 0.35)" }}>
                     <div className="card-header">
                         <div className="card-icon security">⚠️</div>
-                        <span className="card-title">Partial data mode</span>
+                        <span className="card-title">{t(locale, "notice.partialTitle")}</span>
                     </div>
                     <div className="card-body">
                         <p style={{ margin: 0, lineHeight: 1.6 }}>
-                            Primary provider is unavailable, so this result is served by fallback source
-                            {dataMeta.provider ? `: ${dataMeta.provider}` : ""}.
-                            Security / ASN / timezone details may be incomplete.
+                            {tf(locale, "notice.partialBody", { provider: dataMeta.provider || "fallback" })}
                         </p>
                     </div>
                 </div>

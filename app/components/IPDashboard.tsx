@@ -39,6 +39,11 @@ interface IPData {
         is_tor: boolean;
         is_threat: boolean;
     };
+    _meta?: {
+        provider?: string;
+        degraded?: boolean;
+        primaryError?: string;
+    };
 }
 
 type Theme = "light" | "dark";
@@ -384,6 +389,7 @@ export default function IPDashboard({ locale, theme }: { locale: Locale; theme: 
     if (!ipData) return null;
 
     const { location, connection, time_zone, currency, security } = ipData;
+    const dataMeta = ipData._meta;
     const shouldNormalizeHongKong = isHongKongLocation({ location, time_zone, currency });
     const displayCountry = shouldNormalizeHongKong
         ? {
@@ -410,6 +416,23 @@ export default function IPDashboard({ locale, theme }: { locale: Locale; theme: 
 
     return (
         <>
+            {/* Degraded Mode Notice */}
+            {dataMeta?.degraded && (
+                <div className="glass-card animate-in" style={{ marginBottom: "1rem", border: "1px solid rgba(245, 158, 11, 0.35)" }}>
+                    <div className="card-header">
+                        <div className="card-icon security">⚠️</div>
+                        <span className="card-title">Partial data mode</span>
+                    </div>
+                    <div className="card-body">
+                        <p style={{ margin: 0, lineHeight: 1.6 }}>
+                            Primary provider is unavailable, so this result is served by fallback source
+                            {dataMeta.provider ? `: ${dataMeta.provider}` : ""}.
+                            Security / ASN / timezone details may be incomplete.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Search Bar */}
             <div className="search-container">
                 <form onSubmit={handleSearch}>
@@ -503,9 +526,9 @@ export default function IPDashboard({ locale, theme }: { locale: Locale; theme: 
                         <span className="card-title">{t(locale, "card.network")}</span>
                     </div>
                     <div className="card-body">
-                        <InfoRow label={t(locale, "field.asn")} value={`AS${connection.asn}`} />
-                        <InfoRow label={t(locale, "field.org")} value={connection.organization} />
-                        <InfoRow label={t(locale, "field.connType")} value={connection.type} />
+                        <InfoRow label={t(locale, "field.asn")} value={connection.asn ? `AS${connection.asn}` : t(locale, "na")} />
+                        <InfoRow label={t(locale, "field.org")} value={connection.organization || t(locale, "na")} />
+                        <InfoRow label={t(locale, "field.connType")} value={connection.type || t(locale, "na")} />
                         <InfoRow label={t(locale, "field.hostname")} value={ipData.hostname || t(locale, "na")} />
                     </div>
                 </div>

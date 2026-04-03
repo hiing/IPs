@@ -1,18 +1,251 @@
 import { NextRequest, NextResponse } from "next/server";
+import ipaddr from "ipaddr.js";
 
-// Simple IP format validation (IPv4 and IPv6)
-const IPV4_REGEX = /^(\d{1,3}\.){3}\d{1,3}$/;
-const IPV6_REGEX = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
+const PRIMARY_UPSTREAM_BASE = "https://ipinfo.dkly.net/api/";
+const FALLBACK_UPSTREAMS = [
+    "https://ipwho.is/",
+    "https://ipapi.co",
+] as const;
+
+const REQUEST_TIMEOUT_MS = 8_000;
+const SUCCESS_CACHE_CONTROL = "public, max-age=300, s-maxage=600, stale-while-revalidate=120";
+const ERROR_CACHE_CONTROL = "no-store";
 
 function isValidIP(ip: string): boolean {
-    if (IPV4_REGEX.test(ip)) {
-        // Verify each octet is 0-255
-        return ip.split(".").every((octet) => {
-            const n = parseInt(octet, 10);
-            return n >= 0 && n <= 255;
-        });
+    try {
+        return ipaddr.isValid(ip);
+    } catch {
+        return false;
     }
-    return IPV6_REGEX.test(ip);
+}
+
+function errorResponse(status: number, error: string, code: string, details?: unknown) {
+    return NextResponse.json(
+        {
+            error,
+            code,
+            ...(details === undefined ? {} : { details }),
+        },
+        {
+            status,
+            headers: {
+                "Cache-Control": ERROR_CACHE_CONTROL,
+            },
+        }
+    );
+}
+
+async function fetchJsonWithTimeout(url: string, init?: RequestInit) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+        return await fetch(url, {
+            ...init,
+            signal: controller.signal,
+        });
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+type PrimaryUpstreamResponse = Record<string, unknown>;
+
+type FallbackPayload = {
+    ip: string;
+    type: string;
+    hostname: string;
+    connection: {
+        asn: number;
+        organization: string;
+        type: string;
+    };
+    location: {
+        continent: { code: string; name: string };
+        country: { code: string; name: string; flag: { emoji: string } };
+        region: { code: string; name: string };
+        city: string;
+        postal: string;
+        latitude: number;
+        longitude: number;
+    };
+    time_zone: {
+        id: string;
+        abbreviation: string;
+        offset: number;
+    };
+    currency?: {
+        code: string;
+        name: string;
+        symbol: string;
+    };
+    security: {
+        is_vpn: boolean;
+        is_proxy: boolean;
+        is_tor: boolean;
+        is_threat: boolean;
+    };
+    _meta?: {
+        provider: string;
+        degraded: boolean;
+    };
+};
+
+function countryCodeToFlagEmoji(code: string | undefined): string {
+    const normalized = (code ?? "").trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(normalized)) return "🌐";
+    return String.fromCodePoint(...[...normalized].map((char) => 127397 + char.charCodeAt(0)));
+}
+
+function normalizeConnectionType(raw: unknown): string {
+    const value = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+    if (!value) return "unknown";
+    return value;
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function asString(value: unknown, fallback = ""): string {
+    return typeof value === "string" ? value : fallback;
+}
+
+function buildFallbackPayloadFromIpWhois(source: Record<string, unknown>): FallbackPayload {
+    const countryCode = asString(source.country_code, "");
+    const countryName = asString(source.country, "Unknown");
+    const latitude = asNumber(source.latitude, 0);
+    const longitude = asNumber(source.longitude, 0);
+    return {
+        ip: asString(source.ip),
+        type: asString(source.type, source.ip && asString(source.ip).includes(":") ? "IPv6" : "IPv4"),
+        hostname: asString(source.connection && typeof source.connection === "object" ? (source.connection as Record<string, unknown>).domain : ""),
+        connection: {
+            asn: asNumber(source.connection && typeof source.connection === "object" ? (source.connection as Record<string, unknown>).asn : 0, 0),
+            organization: asString(source.connection && typeof source.connection === "object" ? (source.connection as Record<string, unknown>).org : "Unknown"),
+            type: normalizeConnectionType(source.connection && typeof source.connection === "object" ? (source.connection as Record<string, unknown>).type : "unknown"),
+        },
+        location: {
+            continent: {
+                code: asString(source.continent_code),
+                name: asString(source.continent, "Unknown"),
+            },
+            country: {
+                code: countryCode,
+                name: countryName,
+                flag: { emoji: countryCodeToFlagEmoji(countryCode) },
+            },
+            region: {
+                code: asString(source.region_code),
+                name: asString(source.region),
+            },
+            city: asString(source.city),
+            postal: asString(source.postal),
+            latitude,
+            longitude,
+        },
+        time_zone: {
+            id: asString(source.timezone),
+            abbreviation: asString(source.timezone),
+            offset: 0,
+        },
+        currency: undefined,
+        security: {
+            is_vpn: false,
+            is_proxy: false,
+            is_tor: false,
+            is_threat: false,
+        },
+        _meta: {
+            provider: "ipwho.is",
+            degraded: true,
+        },
+    };
+}
+
+function buildFallbackPayloadFromIpApiCo(source: Record<string, unknown>): FallbackPayload {
+    const countryCode = asString(source.country_code, "");
+    const countryName = asString(source.country_name, "Unknown");
+    const latitude = asNumber(source.latitude, 0);
+    const longitude = asNumber(source.longitude, 0);
+    return {
+        ip: asString(source.ip),
+        type: asString(source.version, asString(source.ip).includes(":") ? "IPv6" : "IPv4"),
+        hostname: asString(source.hostname),
+        connection: {
+            asn: 0,
+            organization: asString(source.org, "Unknown"),
+            type: normalizeConnectionType(source.org ? "unknown" : "unknown"),
+        },
+        location: {
+            continent: {
+                code: "",
+                name: "Unknown",
+            },
+            country: {
+                code: countryCode,
+                name: countryName,
+                flag: { emoji: countryCodeToFlagEmoji(countryCode) },
+            },
+            region: {
+                code: asString(source.region_code),
+                name: asString(source.region),
+            },
+            city: asString(source.city),
+            postal: asString(source.postal),
+            latitude,
+            longitude,
+        },
+        time_zone: {
+            id: asString(source.timezone),
+            abbreviation: asString(source.timezone),
+            offset: 0,
+        },
+        currency: source.currency
+            ? {
+                  code: asString(source.currency),
+                  name: asString(source.currency_name),
+                  symbol: asString(source.currency_symbol),
+              }
+            : undefined,
+        security: {
+            is_vpn: false,
+            is_proxy: false,
+            is_tor: false,
+            is_threat: false,
+        },
+        _meta: {
+            provider: "ipapi.co",
+            degraded: true,
+        },
+    };
+}
+
+async function fetchFromFallbackProviders(lookupIp: string): Promise<FallbackPayload | null> {
+    for (const base of FALLBACK_UPSTREAMS) {
+        const url = base === "https://ipwho.is/"
+            ? `${base}${encodeURIComponent(lookupIp)}`
+            : `${base}/${encodeURIComponent(lookupIp)}/json/`;
+
+        try {
+            const response = await fetchJsonWithTimeout(url, {
+                headers: { Accept: "application/json", "User-Agent": "IP-Insight/1.0" },
+            });
+            if (!response.ok) continue;
+            const data = (await response.json()) as Record<string, unknown>;
+
+            if (base === "https://ipwho.is/") {
+                if (data.success === false) continue;
+                return buildFallbackPayloadFromIpWhois(data);
+            }
+
+            if (typeof data.error === "boolean" && data.error) continue;
+            return buildFallbackPayloadFromIpApiCo(data);
+        } catch {
+            continue;
+        }
+    }
+
+    return null;
 }
 
 // In-memory rate limiter (per-IP, resets on worker restart)
@@ -223,13 +456,6 @@ function checkRateLimit(clientIp: string): boolean {
 export async function GET(request: NextRequest) {
     const apiKey = process.env.IPINFO_API_KEY;
 
-    if (!apiKey) {
-        return NextResponse.json(
-            { error: "API key not configured" },
-            { status: 500 }
-        );
-    }
-
     // Rate limiting based on client IP
     const clientIp =
         request.headers.get("cf-connecting-ip") ||
@@ -237,62 +463,108 @@ export async function GET(request: NextRequest) {
         "unknown";
 
     if (!checkRateLimit(clientIp)) {
-        return NextResponse.json(
-            { error: "Rate limit exceeded. Please try again later." },
-            { status: 429 }
-        );
+        return errorResponse(429, "Rate limit exceeded. Please try again later.", "RATE_LIMIT_EXCEEDED");
     }
 
     const { searchParams } = new URL(request.url);
     const ip = searchParams.get("ip");
 
-    // Validate IP format before forwarding
     if (ip && !isValidIP(ip)) {
-        return NextResponse.json(
-            { error: "Invalid IP address format" },
-            { status: 400 }
-        );
+        return errorResponse(400, "Invalid IP address format", "INVALID_IP");
     }
 
-    // Build upstream URL — always pass an explicit IP to the upstream API.
-    // Without an explicit IP, the upstream returns the Worker's own edge-node
-    // IP, which changes on every request and causes the "random IP" bug.
     const lookupIp = ip || clientIp;
 
     if (!lookupIp || lookupIp === "unknown") {
-        return NextResponse.json(
-            { error: "Unable to determine client IP address" },
-            { status: 400 }
-        );
+        return errorResponse(400, "Unable to determine client IP address", "IP_UNAVAILABLE");
     }
 
-    const upstreamUrl = `https://ipinfo.dkly.net/api/?key=${apiKey}&ip=${encodeURIComponent(lookupIp)}`;
+    if (!apiKey) {
+        const fallbackData = await fetchFromFallbackProviders(lookupIp);
+        if (fallbackData) {
+            const data = normalizeHongKongPayload(fallbackData);
+            return NextResponse.json(data, {
+                status: 200,
+                headers: {
+                    "Cache-Control": SUCCESS_CACHE_CONTROL,
+                },
+            });
+        }
+
+        return errorResponse(500, "API key not configured", "PRIMARY_API_KEY_MISSING");
+    }
+
+    const upstreamUrl = `${PRIMARY_UPSTREAM_BASE}?key=${apiKey}&ip=${encodeURIComponent(lookupIp)}`;
 
     try {
-        const response = await fetch(upstreamUrl, {
-            headers: { Accept: "application/json" },
+        const response = await fetchJsonWithTimeout(upstreamUrl, {
+            headers: { Accept: "application/json", "User-Agent": "IP-Insight/1.0" },
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            return NextResponse.json(
-                { error: "Upstream API error", details: errorData },
-                { status: response.status }
+            const message = typeof errorData?.message === "string" ? errorData.message : "";
+            const hasNoCredits = /insufficient credits/i.test(message);
+            const fallbackData = await fetchFromFallbackProviders(lookupIp);
+
+            if (fallbackData) {
+                const mergedFallback = {
+                    ...fallbackData,
+                    _meta: {
+                        ...(fallbackData._meta ?? { provider: "fallback", degraded: true }),
+                        primaryError: hasNoCredits ? "PRIMARY_NO_CREDITS" : "PRIMARY_UPSTREAM_ERROR",
+                    },
+                };
+                const data = normalizeHongKongPayload(mergedFallback);
+                return NextResponse.json(data, {
+                    status: 200,
+                    headers: {
+                        "Cache-Control": SUCCESS_CACHE_CONTROL,
+                    },
+                });
+            }
+
+            return errorResponse(
+                response.status,
+                hasNoCredits ? "Primary upstream account has insufficient credits" : "Upstream API error",
+                hasNoCredits ? "PRIMARY_NO_CREDITS" : "PRIMARY_UPSTREAM_ERROR",
+                errorData
             );
         }
 
-        const data = normalizeHongKongPayload(await response.json());
+        const data = normalizeHongKongPayload((await response.json()) as PrimaryUpstreamResponse);
 
         return NextResponse.json(data, {
             status: 200,
             headers: {
-                "Cache-Control": "public, max-age=300, s-maxage=600",
+                "Cache-Control": SUCCESS_CACHE_CONTROL,
             },
         });
-    } catch {
-        return NextResponse.json(
-            { error: "Failed to fetch IP information" },
-            { status: 502 }
+    } catch (error) {
+        const fallbackData = await fetchFromFallbackProviders(lookupIp);
+        if (fallbackData) {
+            const mergedFallback = {
+                ...fallbackData,
+                _meta: {
+                    ...(fallbackData._meta ?? { provider: "fallback", degraded: true }),
+                    primaryError: error instanceof Error && error.name === "AbortError" ? "PRIMARY_TIMEOUT" : "PRIMARY_FETCH_FAILED",
+                },
+            };
+            const data = normalizeHongKongPayload(mergedFallback);
+            return NextResponse.json(data, {
+                status: 200,
+                headers: {
+                    "Cache-Control": SUCCESS_CACHE_CONTROL,
+                },
+            });
+        }
+
+        return errorResponse(
+            502,
+            error instanceof Error && error.name === "AbortError"
+                ? "Primary upstream timeout"
+                : "Failed to fetch IP information",
+            error instanceof Error && error.name === "AbortError" ? "PRIMARY_TIMEOUT" : "PRIMARY_FETCH_FAILED"
         );
     }
 }

@@ -165,15 +165,16 @@ cd IPs
 npm install
 ```
 
-**3️⃣ 配置环境变量**
+**3️⃣ 配置环境变量 / Secret**
 
 创建 `.env.local` 文件：
 ```env
-IPINFO_API_KEY=你的_API_Key
+IPINFO_API_KEY=你的_dklyIPdatabase_API_Key
 ```
 
 > [!WARNING]
 > 🔐 请勿将 API Key 提交到版本控制中！
+> 生产环境请使用 **Cloudflare Workers Secret / Environment Variable**，不要把 Key 写死在源码或前端。
 
 **4️⃣ 启动开发服务器**
 ```bash
@@ -231,11 +232,11 @@ npx wrangler deploy
 
 | 🛡️ 安全措施 | 📝 说明 |
 |:---:|:---|
-| 🔐 **API Key 保护** | Key 仅存于服务端环境变量，前端完全不可见 |
-| ⏱️ **速率限制** | 每 IP 每分钟最多 **30** 次请求，防止滥用 |
-| ✅ **输入验证** | 严格的 IPv4/IPv6 正则格式校验，防止注入 |
-| 💾 **响应缓存** | `Cache-Control` 策略降低上游 API 调用频率 |
-| 🌐 **CORS 隔离** | 通过服务端代理转发，避免跨域暴露 API 凭证 |
+| 🔐 **API Key 保护** | Key 仅存于服务端环境变量 / Cloudflare Secret，前端完全不可见 |
+| ⏱️ **速率限制** | 当前为内存限流（基础防护），建议生产迁移到 KV / Durable Objects |
+| ✅ **输入验证** | 使用标准 IP 解析库校验 IPv4 / IPv6，避免手写正则误判 |
+| 💾 **响应缓存** | 成功响应缓存，错误响应 `no-store`，避免缓存坏结果 |
+| 🌐 **降级能力** | 主上游异常时自动切换 fallback provider，避免整站瘫痪 |
 
 ---
 
@@ -244,7 +245,9 @@ npx wrangler deploy
 ### 🔀 请求流程
 
 ```text
-🖥️ 客户端 → 📡 /api/ipinfo → 🔒 服务端（限流 + 验证） → 🌐 dklyIPdatabase API → 📦 返回结果
+🖥️ 客户端 → 📡 /api/ipinfo → 🔒 服务端（限流 + 验证）
+          ├─ ✅ primary: dklyIPdatabase
+          └─ ↩ fallback: public geo providers（降级模式）
 ```
 
 ### 📥 请求示例

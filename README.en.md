@@ -165,15 +165,16 @@ cd IPs
 npm install
 ```
 
-**3️⃣ Configure environment variables**
+**3️⃣ Configure environment variables / secret**
 
 Create a `.env.local` file:
 ```env
-IPINFO_API_KEY=your_api_key
+IPINFO_API_KEY=your_dklyIPdatabase_api_key
 ```
 
 > [!WARNING]
 > 🔐 Never commit your API key to version control.
+> In production, use **Cloudflare Workers Secret / Environment Variable** instead of hardcoding the key in source code or frontend assets.
 
 **4️⃣ Start the development server**
 ```bash
@@ -231,11 +232,11 @@ npx wrangler deploy
 
 | 🛡️ Security Measure | 📝 Description |
 |:---:|:---|
-| 🔐 **API key protection** | The key is stored only in server side environment variables and is never exposed to the frontend |
-| ⏱️ **Rate limiting** | Up to **30** requests per minute for each IP, which helps prevent abuse |
-| ✅ **Input validation** | Strict IPv4/IPv6 regex validation helps block malformed input and injection attempts |
-| 💾 **Response caching** | `Cache-Control` reduces upstream API calls |
-| 🌐 **CORS isolation** | Requests go through the server proxy, which avoids exposing API credentials across origins |
+| 🔐 **API key protection** | The key lives only in server-side environment variables / Cloudflare Secret and is never exposed to the frontend |
+| ⏱️ **Rate limiting** | Current implementation is in-memory rate limiting (basic protection); for production use, migrate to KV / Durable Objects |
+| ✅ **Input validation** | Uses a standard IP parsing library for IPv4 / IPv6 validation instead of hand-written regex |
+| 💾 **Response caching** | Successful responses are cached, while error responses use `no-store` to avoid caching broken states |
+| 🌐 **Fallback resilience** | Automatically switches to fallback providers when the primary upstream is unavailable |
 
 ---
 
@@ -244,7 +245,9 @@ npx wrangler deploy
 ### 🔀 Request Flow
 
 ```text
-🖥️ Client → 📡 /api/ipinfo → 🔒 Server, rate limit + validation → 🌐 dklyIPdatabase API → 📦 Response
+🖥️ Client → 📡 /api/ipinfo → 🔒 Server, rate limit + validation
+           ├─ ✅ primary: dklyIPdatabase
+           └─ ↩ fallback: public geo providers (degraded mode)
 ```
 
 ### 📥 Request Examples

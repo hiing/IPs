@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import "./globals.css";
 
 const themeInitScript = `
@@ -42,7 +42,7 @@ export default function RootLayout({
                     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
                     crossOrigin=""
                 />
-                <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+                <link rel="icon" href="/favicon.ico" type="image/x-icon" />
                 <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
             </head>
             <body>{children}</body>

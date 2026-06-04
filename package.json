@@ -7,17 +7,21 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test": "tsc --module NodeNext --moduleResolution NodeNext --target ES2022 --types node --outDir .cache/ip-info-tests lib/hongKongDetection.ts lib/hongKongDetection.test.ts && node --test ./.cache/ip-info-tests/hongKongDetection.test.js",
     "deploy": "vinext build && wrangler deploy"
   },
   "dependencies": {
     "ipaddr.js": "^2.3.0",
     "leaflet": "^1.9.4",
+    "next": "^16.2.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "vinext": "0.0.18"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.25.6",
+    "@cloudflare/workers-types": "^4.20260531.1",
     "@types/leaflet": "^1.9.12",
     "@types/node": "^25.3.3",
     "@types/react": "^19.0.0",

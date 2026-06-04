@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import type { Map as LeafletMap } from "leaflet";
+import { useState, useEffect, useCallback } from "react";
+import {
+    isHongKongValue,
+    shouldNormalizeHongKongLocation,
+} from "../../lib/hongKongDetection";
 import { type Locale, t, tf } from "../i18n/translations";
+import MapView from "./MapView";
 
 // ===== Types =====
 interface IPData {
@@ -53,6 +57,15 @@ type ApiErrorPayload = {
     code?: string;
 };
 
+function toApiErrorPayload(value: unknown): ApiErrorPayload | null {
+    if (typeof value !== "object" || value === null) return null;
+    const source = value as Record<string, unknown>;
+    return {
+        error: typeof source.error === "string" ? source.error : undefined,
+        code: typeof source.code === "string" ? source.code : undefined,
+    };
+}
+
 function mapErrorMessage(locale: Locale, payload: ApiErrorPayload | null, status: number): string {
     switch (payload?.code) {
         case "INVALID_IP":
@@ -71,71 +84,6 @@ function mapErrorMessage(locale: Locale, payload: ApiErrorPayload | null, status
         default:
             return payload?.error || (status >= 500 ? t(locale, "error.generic") : `Request failed (${status})`);
     }
-}
-
-const LIGHT_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-const DARK_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-
-// ===== Map Component (lazy loaded) =====
-function MapView({ lat, lng, theme }: { lat: number; lng: number; theme: Theme }) {
-    const mapRef = useRef<HTMLDivElement>(null);
-    const mapInstanceRef = useRef<LeafletMap | null>(null);
-
-    useEffect(() => {
-        if (!mapRef.current || typeof window === "undefined") return;
-        let isDisposed = false;
-
-        const loadMap = async () => {
-            const L = (await import("leaflet")).default;
-            if (isDisposed || !mapRef.current) return;
-
-            const defaultIconPrototype = L.Icon.Default.prototype as typeof L.Icon.Default.prototype & {
-                _getIconUrl?: string;
-            };
-            delete defaultIconPrototype._getIconUrl;
-            L.Icon.Default.mergeOptions({
-                iconRetinaUrl:
-                    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-                iconUrl:
-                    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-                shadowUrl:
-                    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-            });
-
-            const tileUrl = theme === "dark" ? DARK_TILE_URL : LIGHT_TILE_URL;
-
-            const map = L.map(mapRef.current!, {
-                zoomControl: true,
-                attributionControl: false,
-            }).setView([lat, lng], 12);
-
-            L.tileLayer(tileUrl, {
-                maxZoom: 19,
-            }).addTo(map);
-
-            L.marker([lat, lng]).addTo(map);
-            mapInstanceRef.current = map;
-
-            // Fix rendering in hidden containers
-            window.setTimeout(() => {
-                if (!isDisposed) {
-                    map.invalidateSize();
-                }
-            }, 100);
-        };
-
-        loadMap();
-
-        return () => {
-            isDisposed = true;
-            if (mapInstanceRef.current) {
-                mapInstanceRef.current.remove();
-                mapInstanceRef.current = null;
-            }
-        };
-    }, [lat, lng, theme]);
-
-    return <div ref={mapRef} className="map-container" />;
 }
 
 // ===== Security Badge =====
@@ -176,151 +124,22 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 const API_NORMALIZATION_VERSION = "hk-normalize-v2";
-const HONG_KONG_KEYWORDS = [/hong kong/i, /香港/u];
-const HONG_KONG_DISTRICT_KEYWORDS = [
-    /kowloon/i,
-    /quarry bay/i,
-    /causeway bay/i,
-    /wan chai/i,
-    /wong tai sin/i,
-    /tsim sha tsui/i,
-    /sha tin/i,
-    /tsuen wan/i,
-    /kwun tong/i,
-    /yuen long/i,
-    /tuen mun/i,
-    /tai po/i,
-    /sai kung/i,
-    /hong kong island/i,
-    /new territories/i,
-    /eastern district/i,
-    /southern district/i,
-    /north district/i,
-    /islands district/i,
-    /yau tsim mong/i,
-    /九龍/u,
-    /新界/u,
-    /灣仔/u,
-    /黄大仙/u,
-    /黃大仙/u,
-    /沙田/u,
-    /荃灣/u,
-    /觀塘/u,
-    /元朗/u,
-    /屯門/u,
-    /大埔/u,
-    /西貢/u,
-    /港島/u,
-];
-
-function canonicalizeHongKongString(value: string): string {
-    return value
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "")
-        .replace(/[-_]/g, "")
-        .replace(/[^a-z0-9\u4e00-\u9fa5$]/g, "");
-}
-
-const HK_ALIAS_RAW: string[] = [
-    "hong kong",
-    "hong kong sar",
-    "香港特别行政区",
-    "香港特別行政區",
-    "中国香港",
-    "中國香港",
-    "hksar",
-    "hk",
-    "hkt",
-    "hkst",
-    "hk dollar",
-    "hong kong dollar",
-    "hk$",
-    "hkg",
-];
-const HK_CANONICALS = new Set<string>(HK_ALIAS_RAW.map((s) => canonicalizeHongKongString(s)));
-// Markers for containment-based HK detection
-const HK_MARKERS_RAW: string[] = [
-    "hong kong",
-    "hong kong sar",
-    "香港特别行政区",
-    "香港特別行政區",
-    "中国香港",
-    "中國香港",
-    "hksar",
-    "kowloon",
-    "new territories",
-    "hong kong island",
-    "hong kong island",
-    "九龙",
-    "九龍",
-    "新界",
-    "香港島",
-    "香港岛",
-    "prc hong kong sar",
-    "china hong kong",
-];
-const HK_MARKERS_CANONICALS = new Set<string>(HK_MARKERS_RAW.map((s) => canonicalizeHongKongString(s)));
-
-function isHongKongValue(value: string | undefined): boolean {
-    const v = value ?? "";
-    const canon = canonicalizeHongKongString(v);
-    return HK_CANONICALS.has(canon);
-}
-
-function isHongKongDistrict(value: string | undefined): boolean {
-    return value ? HONG_KONG_DISTRICT_KEYWORDS.some((pattern) => pattern.test(value)) : false;
-}
-
-function isChinaValue(value: string | undefined): boolean {
-    return value ? /china|中国|中國/i.test(value) : false;
-}
-
-function isHongKongCoordinate(latitude: number, longitude: number): boolean {
-    return latitude >= 22.15 && latitude <= 22.6 && longitude >= 113.8 && longitude <= 114.5;
-}
-
 
 function isHongKongLocation(data: Pick<IPData, "location" | "time_zone" | "currency">): boolean {
-    const countryCode = data.location.country.code?.toUpperCase() ?? "";
-    const countryName = data.location.country.name;
-    const regionCode = data.location.region.code?.toUpperCase() ?? "";
-    const regionName = data.location.region.name;
-    const currencyCode = data.currency?.code?.toUpperCase() ?? "";
-    const cityName = data.location.city;
-    const timeZoneId = data.time_zone.id?.toUpperCase() ?? "";
-    const timeZoneAbbreviation = data.time_zone.abbreviation?.toUpperCase() ?? "";
-    const currencyName = data.currency?.name;
-    const currencySymbol = data.currency?.symbol;
-
-    const currencyNameIsHK = isHongKongValue(currencyName);
-    const currencySymbolIsHK = !!currencySymbol && currencySymbol.toUpperCase().includes("HK$");
-    const currencyCodeIsHKD = currencyCode === "HKD";
-    const isHKCurrency = currencyCodeIsHKD || currencyNameIsHK || currencySymbolIsHK;
-
-    const hasHongKongTextSignal =
-        isHongKongValue(countryName) ||
-        isHongKongValue(regionName) ||
-        isHongKongValue(cityName) ||
-        isHongKongDistrict(regionName) ||
-        isHongKongDistrict(cityName);
-    const hasHongKongCoordinateSignal = isHongKongCoordinate(data.location.latitude, data.location.longitude);
-    const hasHongKongTimeZoneSignal =
-        timeZoneId === "ASIA/HONG_KONG" || timeZoneAbbreviation === "HKT" || timeZoneAbbreviation === "HKST";
-    const looksLikeChina =
-        countryCode === "CN" || isChinaValue(countryName) || currencyCode === "CNY" || currencySymbol === "¥";
-
-    return (
-        countryCode === "HK" ||
-        countryCode === "HKG" ||
-        countryCode === "CN-HK" ||
-        regionCode === "HK" ||
-        isHKCurrency ||
-        hasHongKongTextSignal ||
-        hasHongKongTimeZoneSignal ||
-        (looksLikeChina && (hasHongKongTimeZoneSignal || hasHongKongTextSignal)) ||
-        (hasHongKongCoordinateSignal && (hasHongKongTimeZoneSignal || hasHongKongTextSignal))
-    );
+    return shouldNormalizeHongKongLocation({
+        countryCode: data.location.country.code,
+        countryName: data.location.country.name,
+        regionCode: data.location.region.code,
+        regionName: data.location.region.name,
+        cityName: data.location.city,
+        timeZoneId: data.time_zone.id,
+        timeZoneAbbreviation: data.time_zone.abbreviation,
+        currencyCode: data.currency?.code,
+        currencyName: data.currency?.name,
+        currencySymbol: data.currency?.symbol,
+        latitude: data.location.latitude,
+        longitude: data.location.longitude,
+    });
 }
 
 // ===== Main Dashboard =====
@@ -344,7 +163,7 @@ export default function IPDashboard({ locale, theme }: { locale: Locale; theme: 
                 cache: "no-store",
             });
             if (!res.ok) {
-                const errorData: ApiErrorPayload | null = await res.json().catch(() => null);
+                const errorData = toApiErrorPayload(await res.json().catch(() => null));
                 throw new Error(mapErrorMessage(locale, errorData, res.status));
             }
             const data: IPData = await res.json();

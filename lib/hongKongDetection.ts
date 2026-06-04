@@ -22,6 +22,21 @@ export const HONG_KONG_TIME_ZONE_SET: Set<string> = new Set(["ASIA/HONG_KONG"]);
 
 export const HONG_KONG_TIME_ZONE_ABBREVIATION_SET: Set<string> = new Set(["HKT", "HKST"]);
 
+export interface HongKongLocationSignals {
+    countryCode?: string;
+    countryName?: string;
+    regionCode?: string;
+    regionName?: string;
+    cityName?: string;
+    timeZoneId?: string;
+    timeZoneAbbreviation?: string;
+    currencyCode?: string;
+    currencyName?: string;
+    currencySymbol?: string;
+    latitude?: number;
+    longitude?: number;
+}
+
 export function canonicalizeHongKongString(value: string): string {
     return value
         .toLowerCase()
@@ -44,6 +59,10 @@ export function isHongKongValue(value: string | undefined): boolean {
     return HK_CANONICALS.has(canon);
 }
 
+export function isHongKongText(value: string | undefined): boolean {
+    return matchesAnyPattern(value, HONG_KONG_TEXT_PATTERNS);
+}
+
 export function isHongKongDistrict(value: string | undefined): boolean {
     return value ? HONG_KONG_DISTRICT_PATTERNS.some((pattern) => pattern.test(value)) : false;
 }
@@ -59,4 +78,37 @@ export function isHongKongCoordinate(latitude: number | undefined, longitude: nu
 
 export function matchesAnyPattern(value: string | undefined, patterns: RegExp[]): boolean {
     return value ? patterns.some((pattern) => pattern.test(value)) : false;
+}
+
+export function shouldNormalizeHongKongLocation(signals: HongKongLocationSignals): boolean {
+    const countryCode = signals.countryCode?.toUpperCase() ?? "";
+    const regionCode = signals.regionCode?.toUpperCase() ?? "";
+    const timeZoneId = signals.timeZoneId?.toUpperCase() ?? "";
+    const timeZoneAbbreviation = signals.timeZoneAbbreviation?.toUpperCase() ?? "";
+    const currencyCode = signals.currencyCode?.toUpperCase() ?? "";
+    const currencySymbol = signals.currencySymbol;
+
+    const hasHongKongCodeSignal = HONG_KONG_CODE_SET.has(countryCode) || HONG_KONG_CODE_SET.has(regionCode);
+    const hasHongKongTimeZoneSignal =
+        HONG_KONG_TIME_ZONE_SET.has(timeZoneId) || HONG_KONG_TIME_ZONE_ABBREVIATION_SET.has(timeZoneAbbreviation);
+    const hasHongKongTextSignal =
+        isHongKongText(signals.countryName) ||
+        isHongKongText(signals.regionName) ||
+        isHongKongText(signals.cityName) ||
+        isHongKongDistrict(signals.regionName) ||
+        isHongKongDistrict(signals.cityName);
+    const hasHongKongCurrencySignal =
+        currencyCode === "HKD" || currencySymbol === "HK$" || isHongKongText(signals.currencyName);
+    const hasHongKongCoordinateSignal = isHongKongCoordinate(signals.latitude, signals.longitude);
+    const looksLikeChina =
+        countryCode === "CN" || isChinaValue(signals.countryName) || currencyCode === "CNY" || currencySymbol === "¥";
+
+    return (
+        hasHongKongCodeSignal ||
+        hasHongKongCurrencySignal ||
+        hasHongKongTimeZoneSignal ||
+        hasHongKongTextSignal ||
+        (looksLikeChina && (hasHongKongTimeZoneSignal || hasHongKongTextSignal)) ||
+        (hasHongKongCoordinateSignal && (hasHongKongTimeZoneSignal || hasHongKongTextSignal))
+    );
 }
